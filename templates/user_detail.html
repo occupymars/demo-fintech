@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+
+{% block title %}{{ user.name }} - LendFlow Demo{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Breadcrumb -->
+    <div class="flex items-center gap-2 text-sm">
+        <a href="/" class="text-gray-400 hover:text-white">Dashboard</a>
+        <span class="text-gray-600">→</span>
+        <span class="text-white">{{ user.name }}</span>
+    </div>
+
+    <!-- User Info -->
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+        <div class="flex items-start justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-white mb-1">{{ user.name }}</h1>
+                <p class="text-sm text-gray-400 font-mono">{{ user.id }}</p>
+            </div>
+            <div class="text-right">
+                {% if user.kyc_status.value == 'verified' %}
+                <span class="px-3 py-1 text-sm rounded-full bg-green-500/20 text-green-400">KYC Verified</span>
+                {% elif user.kyc_status.value == 'incomplete' %}
+                <span class="px-3 py-1 text-sm rounded-full bg-amber-500/20 text-amber-400">KYC Incomplete</span>
+                {% else %}
+                <span class="px-3 py-1 text-sm rounded-full bg-gray-500/20 text-gray-400">{{ user.kyc_status.value }}</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+            <div>
+                <p class="text-xs text-gray-500 uppercase mb-1">Email</p>
+                <p class="text-sm text-white">{{ user.email }}</p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500 uppercase mb-1">Phone</p>
+                <p class="text-sm text-white">{{ user.phone }}</p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500 uppercase mb-1">Timezone</p>
+                <p class="text-sm text-white">{{ user.timezone }}</p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500 uppercase mb-1">Created</p>
+                <p class="text-sm text-white">{{ user.created_at.strftime('%Y-%m-%d') }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Event Triggers -->
+    <div class="bg-accent/10 border border-accent/30 rounded-xl p-6">
+        <h2 class="text-lg font-semibold text-accent mb-4">Trigger Fourbyfour Events</h2>
+        <p class="text-sm text-gray-300 mb-6">
+            Click a button to trigger an event. This will call <code class="text-accent">fbf.track()</code> with the event data,
+            which triggers the corresponding workflow in Fourbyfour.
+        </p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Payment Due -->
+            {% if loans %}
+            <div class="bg-gray-900 border border-gray-800 rounded-lg p-4">
+                <h3 class="font-medium text-white mb-2">Payment Due</h3>
+                <p class="text-xs text-gray-400 mb-3">Triggers payment reminder workflow</p>
+                <form action="/actions/payment-due" method="post" class="flex items-center gap-2">
+                    <input type="hidden" name="user_id" value="{{ user.id }}">
+                    <select name="loan_id" class="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
+                        {% for loan in loans %}
+                        <option value="{{ loan.id }}">{{ loan.id }} - {{ loan.currency }} {{ "{:,.0f}".format(loan.emi_amount) }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="px-4 py-2 bg-accent hover:bg-accent/90 text-white rounded-lg text-sm font-medium transition-colors">
+                        Trigger
+                    </button>
+                </form>
+                <p class="mt-2 text-xs text-gray-500">Event: <code class="text-accent">payment.due</code></p>
+            </div>
+            {% endif %}
+
+            <!-- KYC Incomplete -->
+            <div class="bg-gray-900 border border-gray-800 rounded-lg p-4">
+                <h3 class="font-medium text-white mb-2">KYC Incomplete</h3>
+                <p class="text-xs text-gray-400 mb-3">Triggers KYC completion workflow</p>
+                <form action="/actions/kyc-incomplete" method="post">
+                    <input type="hidden" name="user_id" value="{{ user.id }}">
+                    <button type="submit" class="w-full px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-sm font-medium transition-colors">
+                        Mark KYC Incomplete
+                    </button>
+                </form>
+                <p class="mt-2 text-xs text-gray-500">Event: <code class="text-accent">kyc.incomplete</code></p>
+            </div>
+
+            <!-- Transaction Failed -->
+            {% if loans %}
+            <div class="bg-gray-900 border border-gray-800 rounded-lg p-4">
+                <h3 class="font-medium text-white mb-2">Transaction Failed</h3>
+                <p class="text-xs text-gray-400 mb-3">Triggers failed payment recovery workflow</p>
+                <form action="/actions/transaction-failed" method="post" class="flex items-center gap-2">
+                    <input type="hidden" name="user_id" value="{{ user.id }}">
+                    <select name="loan_id" class="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
+                        {% for loan in loans %}
+                        <option value="{{ loan.id }}">{{ loan.id }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-sm font-medium transition-colors">
+                        Fail Payment
+                    </button>
+                </form>
+                <p class="mt-2 text-xs text-gray-500">Event: <code class="text-accent">transaction.failed</code></p>
+            </div>
+            {% endif %}
+
+            <!-- Account Dormant -->
+            <div class="bg-gray-900 border border-gray-800 rounded-lg p-4">
+                <h3 class="font-medium text-white mb-2">Account Dormant</h3>
+                <p class="text-xs text-gray-400 mb-3">Triggers reactivation workflow</p>
+                <form action="/actions/mark-dormant" method="post">
+                    <input type="hidden" name="user_id" value="{{ user.id }}">
+                    <button type="submit" class="w-full px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg text-sm font-medium transition-colors">
+                        Mark Dormant
+                    </button>
+                </form>
+                <p class="mt-2 text-xs text-gray-500">Event: <code class="text-accent">account.dormant</code></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- User's Loans -->
+    <div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+        <div class="px-4 py-3 border-b border-gray-800">
+            <h2 class="font-semibold text-white">Loans</h2>
+        </div>
+        {% if loans %}
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-800/50">
+                    <tr>
+                        <th class="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Loan ID</th>
+                        <th class="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Amount</th>
+                        <th class="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">EMI</th>
+                        <th class="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Tenure</th>
+                        <th class="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Due Date</th>
+                        <th class="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-800">
+                    {% for loan in loans %}
+                    <tr class="hover:bg-gray-800/50 transition-colors">
+                        <td class="px-4 py-3 text-sm font-mono text-gray-300">{{ loan.id }}</td>
+                        <td class="px-4 py-3 text-sm text-white font-medium">{{ loan.currency }} {{ "{:,.0f}".format(loan.amount) }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-300">{{ loan.currency }} {{ "{:,.0f}".format(loan.emi_amount) }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-300">{{ loan.tenure_months }} months</td>
+                        <td class="px-4 py-3 text-sm text-gray-300">{{ loan.due_date.strftime('%Y-%m-%d') }}</td>
+                        <td class="px-4 py-3">
+                            {% if loan.status.value == 'active' %}
+                            <span class="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-400">Active</span>
+                            {% elif loan.status.value == 'overdue' %}
+                            <span class="px-2 py-1 text-xs rounded-full bg-red-500/20 text-red-400">Overdue</span>
+                            {% elif loan.status.value == 'paid' %}
+                            <span class="px-2 py-1 text-xs rounded-full bg-blue-500/20 text-blue-400">Paid</span>
+                            {% else %}
+                            <span class="px-2 py-1 text-xs rounded-full bg-gray-500/20 text-gray-400">{{ loan.status.value }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="px-4 py-8 text-center text-gray-500">
+            <p>No loans for this user.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- User's Transactions -->
+    <div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+        <div class="px-4 py-3 border-b border-gray-800">
+            <h2 class="font-semibold text-white">Transaction History</h2>
+        </div>
+        {% if transactions %}
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-800/50">
+                    <tr>
+                        <th class="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Transaction ID</th>
+                        <th class="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Loan</th>
+                        <th class="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Amount</th>
+                        <th class="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Status</th>
+                        <th class="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Reason</th>
+                        <th class="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Date</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-800">
+                    {% for txn in transactions %}
+                    <tr class="hover:bg-gray-800/50 transition-colors">
+                        <td class="px-4 py-3 text-sm font-mono text-gray-300">{{ txn.id }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-300">{{ txn.loan_id }}</td>
+                        <td class="px-4 py-3 text-sm text-white font-medium">{{ txn.currency }} {{ "{:,.0f}".format(txn.amount) }}</td>
+                        <td class="px-4 py-3">
+                            {% if txn.status.value == 'success' %}
+                            <span class="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-400">Success</span>
+                            {% elif txn.status.value == 'failed' %}
+                            <span class="px-2 py-1 text-xs rounded-full bg-red-500/20 text-red-400">Failed</span>
+                            {% else %}
+                            <span class="px-2 py-1 text-xs rounded-full bg-amber-500/20 text-amber-400">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-400">{{ txn.failure_reason or '-' }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-300">{{ txn.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="px-4 py-8 text-center text-gray-500">
+            <p>No transactions yet.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
