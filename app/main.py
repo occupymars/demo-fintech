@@ -21,6 +21,14 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 
+# Auto-seed on startup if database is empty
+@app.on_event("startup")
+async def seed_on_startup():
+    if not db.users:
+        from app.seed import seed_database
+        seed_database()
+
+
 # ============================================================================
 # Pages
 # ============================================================================
